@@ -192,3 +192,53 @@ CI runs on every PR (`npm ci && npm run build && npm run check && npx nx affecte
 - Use CommonJS or Service Worker format — ES modules only
 - Modify `node_modules/` or `dist/` directories
 - Force push to main
+
+## Cursor Cloud specific instructions
+
+### Node.js version
+
+This repo requires **Node 24+** (CI uses Node 24). Cloud Agent VMs ship Node 22 at `/exec-daemon/node`, which takes precedence over nvm unless you prepend nvm’s Node 24 bin directory to `PATH`. A one-time shell setup is already applied in `~/.bashrc` on this VM; in new shells, confirm with `node --version` (should report v24.x).
+
+### Dependency refresh
+
+Run `npm install` from the repo root (see **Setup** above). `postinstall` runs `patch-package`; `prepare` sets up husky.
+
+### Build before running examples
+
+Examples import built package `dist/` output. After pulling changes that touch `packages/`, run `npm run build` before `npm start` in an example. While a dev server is running, rebuild changed packages to pick up SDK changes.
+
+### Playwright (browser / React hook tests)
+
+`agents:test` includes browser tests that need Chromium. One-time setup on a fresh VM:
+
+```bash
+npm run prepare:playwright
+```
+
+Without this, vitest may pass worker tests but fail during browser teardown with “Executable doesn't exist” for Playwright.
+
+### Running the main playground
+
+```bash
+cd examples/playground && npm start   # http://localhost:5173
+```
+
+`examples/playground/wrangler.jsonc` sets `"ai": { "remote": true }`, so startup waits on a **remote Workers AI** connection. Without `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` (or `wrangler login`), dev may hang at “Establishing remote connection…”. AI chat/voice demos need those credentials; core DO/state demos do not once the server is up.
+
+### Local example without Cloudflare credentials
+
+For a full-stack demo that starts immediately (no remote AI binding):
+
+```bash
+cd examples/tictactoe && npm start   # http://localhost:5173
+```
+
+Uses local workerd + Durable Objects; optional `OPENAI_API_KEY` in `.env` for the AI opponent move.
+
+### Long-running dev servers
+
+Use tmux for Vite + worker dev servers, e.g. session `tictactoe-dev-server` or `playground-dev-server`. Reattach with `tmux -f /exec-daemon/tmux.portal.conf attach -t <session>`.
+
+### Standard commands
+
+Lint/typecheck/exports: `npm run check`. Tests: `npm run test` or `npx nx run <project>:test`. See the **Commands** table above for the full list.
